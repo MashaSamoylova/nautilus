@@ -52,6 +52,7 @@ pub struct Fuzzer {
     pub target_path: String,
     pub target_args: Vec<String>,
     pub execution_count: u64,
+    pub non_determenistic_execution: u64,
     pub average_executions_per_sec: f32,
     pub bits_found_by_havoc: u64,
     pub bits_found_by_havoc_rec: u64,
@@ -97,6 +98,7 @@ impl Fuzzer {
             target_path: path,
             target_args: args,
             execution_count: 0,
+            non_determenistic_execution: 0,
             average_executions_per_sec: 0.0,
             bits_found_by_havoc: 0,
             bits_found_by_havoc_rec: 0,
@@ -319,6 +321,11 @@ impl Fuzzer {
                         .expect("RAND_2835014626")
                         .queue
                         .add(tree, old_bitmap, exitreason, ctx, execution_time);
+                    self.global_state
+                        .lock()
+                        .expect("RAND_TEXT1")
+                        .last_path =
+                        strftime("[%Y-%m-%d] %H:%M:%S", &othertime::now()).expect("RAND_TEXT2");
                     //println!("Entry added to queue! New bits: {:?}", bits.clone().expect("RAND_2243482569"));
                 }
             }
@@ -333,12 +340,17 @@ impl Fuzzer {
         code: &[u8],
     ) -> Result<(), SubprocessError> {
         for _ in 0..5 {
+            let mut non_determenistic = false;
             let (_, _) = self.exec_raw(code)?;
             let run_bitmap = self.forksrv.get_shared();
             for (i, &v) in old_bitmap.iter().enumerate() {
                 if run_bitmap[i] != v {
-                    println!("found fucky bit {}", i);
+                    non_determenistic = true;
+                   // println!("found fucky bit {}", i);
                 }
+            }
+            if non_determenistic {
+                self.non_determenistic_execution += 1;
             }
             new_bits.retain(|&i| run_bitmap[i] != 0);
         }

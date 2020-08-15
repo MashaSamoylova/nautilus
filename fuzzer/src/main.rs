@@ -112,6 +112,7 @@ fn fuzzing_thread(
     let mut state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
     state.ctx = ctx.clone();
     let mut old_execution_count = 0;
+    let mut old_nd_execution_count = 0;
     let mut old_executions_per_sec = 0;
     //Normal mode
     loop {
@@ -133,6 +134,7 @@ fn fuzzing_thread(
                 state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
                 state.ctx = ctx.clone();
                 old_execution_count = 0;
+                old_nd_execution_count = 0;
                 old_executions_per_sec = 0;
             }
             global_state
@@ -158,6 +160,7 @@ fn fuzzing_thread(
                     state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
                     state.ctx = ctx.clone();
                     old_execution_count = 0;
+                    old_nd_execution_count = 0;
                     old_executions_per_sec = 0;
                 }
             }
@@ -170,6 +173,8 @@ fn fuzzing_thread(
         let mut stats = global_state.lock().expect("RAND_2403514078");
         stats.execution_count += state.fuzzer.execution_count - old_execution_count;
         old_execution_count = state.fuzzer.execution_count;
+        stats.non_determenistic_execution += state.fuzzer.non_determenistic_execution - old_nd_execution_count;
+        old_nd_execution_count = state.fuzzer.non_determenistic_execution;
         stats.average_executions_per_sec += state.fuzzer.average_executions_per_sec as u32;
         stats.average_executions_per_sec -= old_executions_per_sec;
         old_executions_per_sec = state.fuzzer.average_executions_per_sec as u32;
@@ -355,6 +360,7 @@ fn main() {
                 print!("{}[H", 27 as char);
                 loop {
                     let execution_count;
+                    let non_determenistic_execution;
                     let average_executions_per_sec;
                     let queue_len;
                     let bits_found_by_gen;
@@ -364,6 +370,7 @@ fn main() {
                     let bits_found_by_splice;
                     let bits_found_by_havoc;
                     let bits_found_by_havoc_rec;
+                    let last_path;
                     let last_found_asan;
                     let last_found_sig;
                     let last_timeout;
@@ -372,6 +379,7 @@ fn main() {
                     {
                         let shared_state = global_state.lock().expect("RAND_597319831");
                         execution_count = shared_state.execution_count;
+                        non_determenistic_execution = shared_state.non_determenistic_execution;
                         average_executions_per_sec = shared_state.average_executions_per_sec;
                         queue_len = shared_state.queue.len();
                         bits_found_by_gen = shared_state.bits_found_by_gen;
@@ -381,6 +389,7 @@ fn main() {
                         bits_found_by_splice = shared_state.bits_found_by_splice;
                         bits_found_by_havoc = shared_state.bits_found_by_havoc;
                         bits_found_by_havoc_rec = shared_state.bits_found_by_havoc_rec;
+                        last_path = shared_state.last_path.clone();
                         last_found_asan = shared_state.last_found_asan.clone();
                         last_found_sig = shared_state.last_found_sig.clone();
                         last_timeout = shared_state.last_timeout.clone();
@@ -415,6 +424,10 @@ fn main() {
                         execution_count
                     );
                     println!(
+                        "ND Execution Count:       {}                              ",
+                        non_determenistic_execution
+                    );
+                    println!(
                         "Executions per Sec:       {}                              ",
                         average_executions_per_sec
                     );
@@ -435,6 +448,11 @@ fn main() {
                             .read()
                             .expect("RAND_351823021")
                             .trees()
+                    );
+                    println!("------------------------------------------------------    ");
+                    println!(
+                        "Last path:                {}                              ",
+                        last_path
                     );
                     println!("------------------------------------------------------    ");
                     println!(
