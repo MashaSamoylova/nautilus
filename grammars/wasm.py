@@ -1,5 +1,8 @@
 ctx.rule(u'START',u'var e;\n{NEW_OBJECT}')
 
+ctx.rule(u'NEW_OBJECT', u'try \\{ {VALIDATE_METHOD} } catch\\{e\\} \\{\\}\n{NEW_OBJECT}')
+ctx.rule(u'NEW_OBJECT', u'try \\{ {VALIDATE_METHOD} } catch\\{e\\} \\{\\}')
+
 ctx.rule(u'NEW_OBJECT',u'try \\{ {GLOBAL_OBJECT} } catch\\{e\\} \\{\\}\n {GLOBAL_OBJECT_PLAY}')
 ctx.rule(u'NEW_OBJECT',u'try \\{ {GLOBAL_OBJECT} } catch\\{e\\} \\{\\}\n {GLOBAL_OBJECT_PLAY}\n{NEW_OBJECT}')
 
@@ -14,6 +17,31 @@ ctx.rule(u'NEW_OBJECT',u'try \\{ {MODULE_OBJECT} } catch\\{e\\} \\{\\}\n {MODULE
 
 ctx.rule(u'NEW_OBJECT',u'try \\{ {INSTANCE_OBJECT} } catch\\{e\\} \\{\\}\n {INSTANCE_OBJECT_PLAY}')
 ctx.rule(u'NEW_OBJECT',u'try \\{ {INSTANCE_OBJECT} } catch\\{e\\} \\{\\}\n {INSTANCE_OBJECT_PLAY}\n{NEW_OBJECT}')
+
+#####################################
+# VALIDATE
+#####################################
+ctx.rule(u'VALIDATE_METHOD', u'WebAssembly.validate({RANDOM_BUFFER_SOURCE});')
+
+# generate_buffer_source generates random opcodes:
+#
+# https://webassembly.github.io/spec/core/binary/instructions.html
+def generate_buffer_source():
+    import random
+    buffer_len = random.randint(8, 1024)
+    buffer = [random.randint(0, 252) for _ in range(buffer_len)]
+    # magic + version
+    buffer[0] = 0x00
+    buffer[1] = 0x61
+    buffer[2] = 0x73
+    buffer[3] = 0x6d
+    buffer[4] = 0x01
+    buffer[5] = 0x00
+    buffer[6] = 0x00
+    buffer[7] = 0x00
+    return 'new Uint8Array(%s)'%str(buffer)
+
+ctx.script(u'RANDOM_BUFFER_SOURCE', [], generate_buffer_source)
 
 #####################################
 # GLOBAL OBJECT
@@ -94,6 +122,8 @@ ctx.rule(u'MEMORY_OBJECT_METHOD', u'for (var i = 0; i < memorywasm.buffer.length
 # MODULE OBJECT
 #####################################
 ctx.rule(u'MODULE_OBJECT', u'var modulewasm = new WebAssembly.Module({BUFFER_SOURCE});')
+ctx.rule(u'MODULE_OBJECT', u'var modulewasm = WebAssembly.compile({BUFFER_SOURCE});')
+ctx.rule(u'MODULE_OBJECT', u'var modulewasm = WebAssembly.compile({RANDOM_BUFFER_SOURCE});')
 
 # hello world module with main function exported
 ctx.rule(u'BUFFER_SOURCE', u'new Uint8Array([0,97,115,109,1,0,0,0,1,133,128,128,128,0,1,96,0,1,127,3,130,128,128,128,0,1,0,4,132,128,128,128,0,1,112,0,0,5,131,128,128,128,0,1,0,1,6,129,128,128,128,0,0,7,145,128,128,128,0,2,6,109,101,109,111,114,121,2,0,4,109,97,105,110,0,0,10,138,128,128,128,0,1,132,128,128,128,0,0,65,42,11]);')
