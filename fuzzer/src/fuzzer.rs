@@ -48,11 +48,13 @@ pub struct Fuzzer {
     forksrv: ForkServer,
     last_tried_inputs: HashSet<Vec<u8>>,
     last_inputs_ring_buffer: VecDeque<Vec<u8>>,
+    non_determenistic_bits: Vec<u8>,
+    virgin_bits: Vec<u8>,
     pub global_state: Arc<Mutex<GlobalSharedState>>,
     pub target_path: String,
     pub target_args: Vec<String>,
     pub execution_count: u64,
-    pub non_determenistic_execution: u64,
+    pub non_determenistic_execution: f64,
     pub average_executions_per_sec: f32,
     pub bits_found_by_havoc: u64,
     pub bits_found_by_havoc_rec: u64,
@@ -94,11 +96,13 @@ impl Fuzzer {
             forksrv: fs,
             last_tried_inputs: HashSet::new(),
             last_inputs_ring_buffer: VecDeque::new(),
+            non_determenistic_bits: vec![0u8; 1 << 16],
+            virgin_bits: vec![0u8; 1 << 16],
             global_state,
             target_path: path,
             target_args: args,
             execution_count: 0,
-            non_determenistic_execution: 0,
+            non_determenistic_execution: 0.0,
             average_executions_per_sec: 0.0,
             bits_found_by_havoc: 0,
             bits_found_by_havoc_rec: 0,
@@ -340,22 +344,37 @@ impl Fuzzer {
         code: &[u8],
     ) -> Result<(), SubprocessError> {
         for _ in 0..5 {
-            let mut non_determenistic = false;
             let (_, _) = self.exec_raw(code)?;
             let run_bitmap = self.forksrv.get_shared();
             for (i, &v) in old_bitmap.iter().enumerate() {
-                if run_bitmap[i] != v {
-                    non_determenistic = true;
-                   // println!("found fucky bit {}", i);
+                if run_bitmap[i] != 0xff {
+                    self.virgin_bits[i] = 1;
                 }
-            }
-            if non_determenistic {
-                self.non_determenistic_execution += 1;
+                if run_bitmap[i] != v {
+                    self.non_determenistic_bits[i] = 1;
+                }
             }
             new_bits.retain(|&i| run_bitmap[i] != 0);
         }
+
+        let mut var_byte_count = 0;
+        for (_, &v) in self.non_determenistic_bits.iter().enumerate() {
+            if v != 0 {
+                var_byte_count += 1;
+            }
+        }
+        let mut t_bytes = 0;
+        for (_, &v) in self.virgin_bits.iter().enumerate() {
+            if v != 0 {
+                t_bytes += 1;
+            }
+        }
+
+        self.non_determenistic_execution = 100.0 - ((var_byte_count as f64 * 100.0) / t_bytes as f64);
+
         return Ok(());
     }
+
 
     pub fn new_bits(&mut self, is_crash: bool) -> Option<Vec<usize>> {
         let mut res = vec![];

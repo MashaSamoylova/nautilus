@@ -112,7 +112,6 @@ fn fuzzing_thread(
     let mut state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
     state.ctx = ctx.clone();
     let mut old_execution_count = 0;
-    let mut old_nd_execution_count = 0;
     let mut old_executions_per_sec = 0;
     //Normal mode
     loop {
@@ -134,7 +133,6 @@ fn fuzzing_thread(
                 state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
                 state.ctx = ctx.clone();
                 old_execution_count = 0;
-                old_nd_execution_count = 0;
                 old_executions_per_sec = 0;
             }
             global_state
@@ -160,7 +158,6 @@ fn fuzzing_thread(
                     state = FuzzingState::new(fuzzer, config.clone(), cks.clone());
                     state.ctx = ctx.clone();
                     old_execution_count = 0;
-                    old_nd_execution_count = 0;
                     old_executions_per_sec = 0;
                 }
             }
@@ -173,8 +170,7 @@ fn fuzzing_thread(
         let mut stats = global_state.lock().expect("RAND_2403514078");
         stats.execution_count += state.fuzzer.execution_count - old_execution_count;
         old_execution_count = state.fuzzer.execution_count;
-        stats.non_determenistic_execution += state.fuzzer.non_determenistic_execution - old_nd_execution_count;
-        old_nd_execution_count = state.fuzzer.non_determenistic_execution;
+        stats.non_determenistic_execution = state.fuzzer.non_determenistic_execution;
         stats.average_executions_per_sec += state.fuzzer.average_executions_per_sec as u32;
         stats.average_executions_per_sec -= old_executions_per_sec;
         old_executions_per_sec = state.fuzzer.average_executions_per_sec as u32;
@@ -424,7 +420,7 @@ fn main() {
                         execution_count
                     );
                     println!(
-                        "ND Execution Count:       {}                              ",
+                        "Path Stability:           {:.1}%                              ",
                         non_determenistic_execution
                     );
                     println!(
